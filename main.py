@@ -150,7 +150,7 @@ def main(args):
   print("Total barcodes that were sus: {}".format(uniqSusCbcsCounter))
   print("Total sus barcodes that were corrected: {}".format(susCorrectedCounter))
   print("Total barcodes processed: {}".format(totalCbcsCounter))
-  
+  print()
 
 if __name__ == "__main__":
   # set up command line arguments
@@ -176,7 +176,7 @@ if __name__ == "__main__":
   if not os.path.exists(args.fastq):
     raise Exception("Fastq file not found")
 
-  if not os.path.exists(allowlist):
+  if not os.path.exists(args.allowlist):
     raise Exception("Allowlist text file not found")
 
   main(args)
