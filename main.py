@@ -130,7 +130,7 @@ def main(args):
 
       # get the max edit that is > 0.975. if there's a tie, barcode does not get corrected.
       maxPosProb = np.amax(posProbs)
-      if maxPosProb < 0.975:
+      if maxPosProb < args.posProbThresh:
         continue
 
       maxPosProbIdxs = [i for i,x in enumerate(posProbs) if x == maxPosProb]
