@@ -141,10 +141,9 @@ def main(args):
   # output list
   with open(args.output, "w") as outfile:
     for i in range(0, len(finalRecords)):
-      finalRecords[i] = "\t".join(finalRecords[i])
-    
-    outfile.write("\n".join(finalRecords))
-  
+      outfile.write("\t".join(finalRecords[i]))
+      outfile.write("\n")
+
   print("Unique barcodes found in allowlist: {}".format(uniqAllowlistCbcsCounter))
   print("Total barcodes found in allowlist: {}".format(allowlistCbcsCounter))
   print("Total barcodes that were sus: {}".format(uniqSusCbcsCounter))
