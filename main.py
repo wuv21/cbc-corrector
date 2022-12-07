@@ -24,7 +24,7 @@ def convertPhredToProb(phred: Union[list,str]) -> Union[list,str]:
   return formula(phred)
   
 
-def generateSimilarSeqs(seq: str, allowlist: dict, hDist: int = 1) -> Generator[dict, None, None]:
+def generateSimilarSeqs(seq: str, allowlist: dict, hDist: int = 1) -> list:
   """
   generate nearby neighbors with specified hamning distance
   
@@ -35,13 +35,22 @@ def generateSimilarSeqs(seq: str, allowlist: dict, hDist: int = 1) -> Generator[
   mustEditIdx = tuple([i for i in range(len(seq)) if seq[i] == 'N'])
 
   requiredEdits = len(mustEditIdx)
+  similarSeqs = []
+
   if requiredEdits > hDist:
     return None
+  
+  # this allows for the condition of x N-containing cbcs with a max hDist of x.
+  if requiredEdits == 0:
+    minEdits = 1 # setting to one because wouldn't be in this fx if a correction wasn't needed...
+  else:
+    minEdits = requiredEdits
 
-  for dist in range(requiredEdits + 1, hDist + 1):
-    for editIdx in combinations(canEditIdx, dist - requiredEdits):
+  for dist in range(minEdits, hDist + 1):
+    canEditAllowedN = dist - requiredEdits
+
+    for editIdx in combinations(canEditIdx, canEditAllowedN):
       indices = set(editIdx + mustEditIdx)
-      
       
       edits = product(*["".join(DNA_EDIT_OPTIONS[base]) if i in indices else base for i,base in enumerate(seq)])
       
@@ -49,7 +58,9 @@ def generateSimilarSeqs(seq: str, allowlist: dict, hDist: int = 1) -> Generator[
         editedSeq = "".join(ed)
 
         if editedSeq in allowlist:
-          yield {"edit": editedSeq, "idx": list(indices)}
+          similarSeqs.append({"edit": editedSeq, "idx": list(indices)})
+
+  return similarSeqs
 
 
 def main(args):
@@ -88,7 +99,7 @@ def main(args):
         allowlistCbcsCounter += 1
         
         # add to finalRecords. The "-1" denotes a valid barcode
-        finalRecords.append([record.id, cbc + "-1"])
+        finalRecords.append([record.id, cbc + args.BAMTagSuffix])
 
       else:
         uniqSusCbcsCounter += 1
@@ -111,6 +122,9 @@ def main(args):
 
     potentialEdits = generateSimilarSeqs(seq = scbc, allowlist = allowlistCbcs, hDist = 1)
     
+    if potentialEdits == None:
+      continue
+
     # generate posterior probs
     posProbs = []
     posEdits = []
@@ -133,10 +147,18 @@ def main(args):
       if maxPosProb < args.posProbThresh:
         continue
 
+      # debugging
+      # print('--------')
+      # print(scbc)
+      # print(potentialEdits)
+      # print([allowlistCbcsProb[cbc['edit']] for cbc in potentialEdits])
+      # print(correctBc)
+      # print(posProbs)
+
       maxPosProbIdxs = [i for i,x in enumerate(posProbs) if x == maxPosProb]
       if len(maxPosProbIdxs) == 1:
         susCorrectedCounter += 1
-        finalRecords[scbcRecordIdx][1] = posEdits[maxPosProbIdxs[0]]["edit"]
+        finalRecords[scbcRecordIdx][1] = posEdits[maxPosProbIdxs[0]]["edit"] + args.BAMTagSuffix
 
   # output list
   with open(args.output, "w") as outfile:
@@ -150,6 +172,8 @@ def main(args):
   print("Total sus barcodes that were corrected: {}".format(susCorrectedCounter))
   print("Total barcodes processed: {}".format(totalCbcsCounter))
   print()
+
+  print("Adding tag to BAM file")
 
 if __name__ == "__main__":
   # set up command line arguments
@@ -165,6 +189,15 @@ if __name__ == "__main__":
   parser.add_argument("--output",
     required = True,
     help = "Output file path")
+  parser.add_argument("--bam",
+    required = True,
+    help = "BAM file to assign corrected barcodes")
+  parser.add_argument("--BAMTagField",
+    default = "CB",
+    help = "Prefix to add to BAM cell barcode tag")
+  parser.add_argument("--BAMTagSuffix",
+    default = "-1",
+    help = "Suffix to add to BAM cell barcode tag")
   parser.add_argument("--posProbThresh",
     default = 0.975,
     type = float,
