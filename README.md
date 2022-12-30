@@ -25,6 +25,41 @@ python main.py \
 - `--allowlist` *(required)* Txt file containing allowlist barcodes (one per line). For scATAC assays, the file can be found in the cellranger-atac package and is named "737K-cratac-v1.txt".
 - `--output` *(required)* Output file path.
 - `--posProbThresh` Default = 0.975. Float value that denotes the minimum probability needed for barcode correction.
+- `--bam` *(required)* Input bam file that needs assignment of corrected cell barcode.
+- `--outBam` *(required)* Output bam file path with corrected cell barcodes.
+- `--BAMTagField` Default = "CB". Tag field to write corrected cell barcode to in output BAM file.
+- `--BAMTagSuffix` Default = "-1". Suffix to write to corrected cell barcode to denote correct cell barcode. This default matches with the 10X Genomics nomenclature.
+- `--seqWorkflow` Default = "rc". Choose either "rc" or "fwd" to match the sequencing workflow used. NovaSeq v1.5 kits used the "rc" (reverse complement) workflow while v1 kits use the "fwd" (forward strand) workflow. 
+
+205   parser.add_argument("--fastq",
+206     required = True,
+207     help = "Fastq file containing barcode reads")
+208   parser.add_argument("--allowlist",
+209     required = True,
+210     help = "Txt file containing allowlist barcodes (one per line)")
+211   parser.add_argument("--output",
+212     required = True,
+213     help = "Output file path")
+214   parser.add_argument("--bam",
+215     required = True,
+216     help = "BAM file to assign corrected barcodes")
+217   parser.add_argument("--outBam",
+218     required = True,
+219     help = "BAM output file with corrected barcodes")
+220   parser.add_argument("--BAMTagField",
+221     default = "CB",
+222     help = "Prefix to add to BAM cell barcode tag")
+223   parser.add_argument("--BAMTagSuffix",
+224     default = "-1",
+225     help = "Suffix to add to BAM cell barcode tag")
+226   parser.add_argument("--posProbThresh",
+227     default = 0.975,
+228     type = float,
+229     help = "Minimum probability needed for barcode correction")
+230   parser.add_argument("--seqWorkflow",
+231     default = "rc",
+232     choices = ["rc", "fwd"],
+233     help = "Illumina sequencing workflow. Default is the reverse complement workflow (i.e. NovaSeq v1.5 kits)")
 
 
 ## Outputs
@@ -62,3 +97,5 @@ A00626:220:HL2KFDMXX:1:1101:5249:1063	TACGCCTGTCAACGGA-1
 A00626:220:HL2KFDMXX:1:1101:5303:1063	CAGTGCGTCGCAGATT-1
 A00626:220:HL2KFDMXX:1:1101:5466:1063	GAGTGAGTCAAGAGGC-1
 ```
+
+- BAM file with corrected cell barcodes inserted for each record if it contains a valid cell barcode.

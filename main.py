@@ -9,6 +9,8 @@ from pprint import pprint
 from scripts.terminalPrinting import *
 import os
 import argparse
+import pysam
+import time
 
 DNA_ALPHABET = "ATGC"
 DNA_EDIT_OPTIONS = {char: [c for c in DNA_ALPHABET if c != char] for char in DNA_ALPHABET}
@@ -64,6 +66,8 @@ def generateSimilarSeqs(seq: str, allowlist: dict, hDist: int = 1) -> list:
 
 
 def main(args):
+  tStart = time.time()
+
   allowlistCbcs = {}
   allowlistCbcsCounter = 0
   uniqAllowlistCbcsCounter = 0
@@ -86,10 +90,10 @@ def main(args):
       score = convertPhredToProb(score)
 
       cbc = str(record.seq)
-
-      # double check if cbc is rc, if so also need to reverse order of q scores
-      #cbc = str(record.seq.reverse_complement())
-      #score.reverse()
+      
+      if args.seqWorkflow == "rc":
+        cbc = str(record.seq.reverse_complement())
+        score.reverse()
 
       if cbc in allowlistCbcs:
         if allowlistCbcs[cbc] == 0:
@@ -166,6 +170,25 @@ def main(args):
       outfile.write("\t".join(finalRecords[i]))
       outfile.write("\n")
 
+  print("Finished correcting. Adding tag to BAM file")
+  
+  # convert finalRecords to dictionary
+  recordDict = {rec[0]: rec[1] for rec in finalRecords}
+
+  # process bam file
+  origBam = pysam.AlignmentFile(args.bam, "rb")
+  outBam = pysam.AlignmentFile(args.outBam, "wb", template = origBam)
+
+  for read in origBam.fetch(until_eof = True):
+    rname = read.get_reference_name()
+    if rname in recordDict:
+      read.set_tag(args.BAMTagField, recordDict[rname], value_type = "Z")
+      outBam.write(read)
+
+  origBam.close()
+  outBam.close()
+
+  print("Time elapsed: {} seconds".format(str(time.time() - tStart)))
   print("Unique barcodes found in allowlist: {}".format(uniqAllowlistCbcsCounter))
   print("Total barcodes found in allowlist: {}".format(allowlistCbcsCounter))
   print("Total barcodes that were sus: {}".format(uniqSusCbcsCounter))
@@ -173,7 +196,6 @@ def main(args):
   print("Total barcodes processed: {}".format(totalCbcsCounter))
   print()
 
-  print("Adding tag to BAM file")
 
 if __name__ == "__main__":
   # set up command line arguments
@@ -192,6 +214,9 @@ if __name__ == "__main__":
   parser.add_argument("--bam",
     required = True,
     help = "BAM file to assign corrected barcodes")
+  parser.add_argument("--outBam",
+    required = True,
+    help = "BAM output file with corrected barcodes")
   parser.add_argument("--BAMTagField",
     default = "CB",
     help = "Prefix to add to BAM cell barcode tag")
@@ -202,6 +227,10 @@ if __name__ == "__main__":
     default = 0.975,
     type = float,
     help = "Minimum probability needed for barcode correction")
+  parser.add_argument("--seqWorkflow",
+    default = "rc",
+    choices = ["rc", "fwd"],
+    help = "Illumina sequencing workflow. Default is the reverse complement workflow (i.e. NovaSeq v1.5 kits)")
 
   args = parser.parse_args()
   
@@ -210,5 +239,11 @@ if __name__ == "__main__":
 
   if not os.path.exists(args.allowlist):
     raise Exception("Allowlist text file not found")
+  
+  if not os.path.exists(os.path.dirname(args.output)):
+    raise Exception("Directory for output text file not found")
+
+  if not os.path.exists(os.path.dirname(args.outBam)):
+    raise Exception("Directory for output bam file not found")
 
   main(args)
