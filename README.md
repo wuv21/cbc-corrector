@@ -14,9 +14,11 @@ cbc-corrector is a Python tool to extract cell barcodes from a fastq file in ord
 ```bash
 # run cbc-corrector
 python main.py \
-  --fastq=./tmp_R2.fastq \
-  --allowlist=./737K-cratac-v1.txt \
-  --output=./tmp_barcodes.txt
+  --fastq=tmp_R2.fastq \
+  --allowlist=737K-cratac-v1.txt \
+  --output=tmp_barcodes.txt \
+  --bam=tmp.bam \
+  --outBam=tmp.corrected.bam
 ```
 
 ## Parameters
