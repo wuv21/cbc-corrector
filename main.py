@@ -11,6 +11,8 @@ import os
 import argparse
 import pysam
 import time
+import gzip
+import shelve
 
 DNA_ALPHABET = "ATGC"
 DNA_EDIT_OPTIONS = {char: [c for c in DNA_ALPHABET if c != char] for char in DNA_ALPHABET}
@@ -75,8 +77,8 @@ def main(args):
   totalCbcsCounter = 0
   susCorrectedCounter = 0
 
-
-  finalRecords = []
+  outputShelve = shelve.open(args.output)
+  #finalRecords = []
 
   with open(args.allowlist) as handle:
     for line in handle:
@@ -84,7 +86,7 @@ def main(args):
       allowlistCbcs[line] = 0
   
   susCbcs = {}
-  with open(args.fastq) as handle:
+  with gzip.open(args.fastq, "rt") as handle:
     for record in SeqIO.parse(handle, "fastq"):
       score = record.letter_annotations["phred_quality"]
       score = convertPhredToProb(score)
@@ -103,14 +105,19 @@ def main(args):
         allowlistCbcsCounter += 1
         
         # add to finalRecords. The "-1" denotes a valid barcode
-        finalRecords.append([record.id, cbc + args.BAMTagSuffix])
+        outputShelve[record.id] = cbc + args.BAMTagSuffix
+        #finalRecords.append([])
+
+        #finalRecords.append([record.id, cbc + args.BAMTagSuffix])
 
       else:
         uniqSusCbcsCounter += 1
-        susCbcs[totalCbcsCounter] = {"seq": cbc, "q": score}
+        #susCbcs[totalCbcsCounter] = {"seq": cbc, "q": score}
+        susCbcs[record.id] = {"seq": cbc, "q": score}
 
         # add to finalRecords. No "-1" denotes a sus barcode.
-        finalRecords.append([record.id, cbc])
+        #finalRecords.append([record.id, cbc])
+        outputShelve[record.id] = cbc
 
       totalCbcsCounter += 1
 
@@ -162,31 +169,36 @@ def main(args):
       maxPosProbIdxs = [i for i,x in enumerate(posProbs) if x == maxPosProb]
       if len(maxPosProbIdxs) == 1:
         susCorrectedCounter += 1
-        finalRecords[scbcRecordIdx][1] = posEdits[maxPosProbIdxs[0]]["edit"] + args.BAMTagSuffix
+
+        outputShelve[scbcRecordIdx] = posEdits[maxPosProbIdxs[0]]["edit"] + args.BAMTagSuffix
+        # finalRecords[scbcRecordIdx][1] = posEdits[maxPosProbIdxs[0]]["edit"] + args.BAMTagSuffix
 
   # output list
-  with open(args.output, "w") as outfile:
-    for i in range(0, len(finalRecords)):
-      outfile.write("\t".join(finalRecords[i]))
-      outfile.write("\n")
+  #with open(args.output, "w") as outfile:
+  #  for i in range(0, len(finalRecords)):
+  #    outfile.write("\t".join(finalRecords[i]))
+  #    outfile.write("\n")
 
   print("Finished correcting. Adding tag to BAM file")
   
   # convert finalRecords to dictionary
-  recordDict = {rec[0]: rec[1] for rec in finalRecords}
+  #recordDict = {rec[0]: rec[1] for rec in finalRecords}
 
   # process bam file
   origBam = pysam.AlignmentFile(args.bam, "rb")
   outBam = pysam.AlignmentFile(args.outBam, "wb", template = origBam)
 
   for read in origBam.fetch(until_eof = True):
-    rname = read.get_reference_name()
-    if rname in recordDict:
-      read.set_tag(args.BAMTagField, recordDict[rname], value_type = "Z")
-      outBam.write(read)
+    qname = read.query_name
+    if qname in outputShelve:
+      read.set_tag(args.BAMTagField, outputShelve[qname], value_type = "Z")
+    
+    outBam.write(read)
 
   origBam.close()
   outBam.close()
+  outputShelve.sync()
+  outputShelve.close()
 
   print("Time elapsed: {} seconds".format(str(time.time() - tStart)))
   print("Unique barcodes found in allowlist: {}".format(uniqAllowlistCbcsCounter))
@@ -204,7 +216,7 @@ if __name__ == "__main__":
 
   parser.add_argument("--fastq",
     required = True,
-    help = "Fastq file containing barcode reads")
+    help = "Fastq.gz file containing barcode reads")
   parser.add_argument("--allowlist",
     required = True,
     help = "Txt file containing allowlist barcodes (one per line)")

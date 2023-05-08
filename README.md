@@ -14,7 +14,7 @@ cbc-corrector is a Python tool to extract cell barcodes from a fastq file in ord
 ```bash
 # run cbc-corrector
 python main.py \
-  --fastq=tmp_R2.fastq \
+  --fastq=tmp_R2.fastq.gz \
   --allowlist=737K-cratac-v1.txt \
   --output=tmp_barcodes.txt \
   --bam=tmp.bam \
@@ -23,7 +23,7 @@ python main.py \
 
 ## Parameters
 
-- `--fastq` *(required)* Fastq file containing barcode reads. For 10X Genomics' ATAC assay, this is typically the R2 fastq file (note the different nomenclature due to Illumina's bcl2fastq naming system: R1 = read 1, I1 = index 1, R2 = index 2, R3 = read 2)
+- `--fastq` *(required)* Fastq.gz file containing barcode reads. For 10X Genomics' ATAC assay, this is typically the R2 fastq file (note the different nomenclature due to Illumina's bcl2fastq naming system: R1 = read 1, I1 = index 1, R2 = index 2, R3 = read 2). Note that this file needs to be gunzipped/compressed.
 - `--allowlist` *(required)* Txt file containing allowlist barcodes (one per line). For scATAC assays, the file can be found in the cellranger-atac package and is named "737K-cratac-v1.txt".
 - `--output` *(required)* Output file path.
 - `--posProbThresh` Default = 0.975. Float value that denotes the minimum probability needed for barcode correction.
